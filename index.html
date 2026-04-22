@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Image Toolkit</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js"></script>
+<script>
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/';
+  ort.env.wasm.numThreads = 1;
+</script>
 <style>
   :root {
     --bg: #0e0e10;
@@ -226,9 +231,28 @@
     overflow: hidden;
     position: relative;
     transition: border-color 0.2s;
+    cursor: grab;
   }
 
+  .image-card:active { cursor: grabbing; }
   .image-card:hover { border-color: var(--accent); }
+
+  .drag-handle {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: rgba(14,14,16,0.75);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.4;
+    letter-spacing: 1px;
+    z-index: 2;
+    pointer-events: none;
+    user-select: none;
+  }
 
   .image-card img {
     width: 100%;
@@ -336,6 +360,99 @@
     color: var(--muted);
     min-height: 20px;
     margin-top: 10px;
+  }
+
+  .removed-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 0 20px 20px;
+  }
+
+  .removed-preview-card {
+    background: repeating-conic-gradient(#2e2e34 0% 25%, #1a1a1e 0% 50%) 0 0 / 16px 16px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .removed-preview-card img {
+    width: 100%;
+    height: 140px;
+    object-fit: contain;
+    display: block;
+  }
+
+  .removed-preview-name {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    padding: 6px 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Process status bar */
+  .process-status-bar {
+    margin: 10px 20px 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+
+  .process-status-steps {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .step-pill {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s;
+  }
+
+  .step-pill.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(240,192,64,0.08);
+  }
+
+  .step-pill.done {
+    border-color: var(--success);
+    color: var(--success);
+    background: rgba(64,192,128,0.08);
+  }
+
+  .step-pill.error {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: rgba(224,64,96,0.08);
+  }
+
+  .step-arrow {
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .process-status-detail {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    min-height: 16px;
   }
 
   .btn:disabled {
@@ -550,6 +667,237 @@
 
   .swatch-white { background: #ffffff; }
   .swatch-black { background: #000000; border-color: #555; }
+
+  /* Presets bar */
+  .presets-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .preset-label {
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+
+  .preset-slots {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+
+  .preset-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .preset-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  .preset-chip-del {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    margin-left: 2px;
+  }
+
+  .preset-chip-del:hover { color: var(--danger); }
+
+  .preset-empty {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Advanced toggle */
+  .advanced-toggle {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s;
+  }
+
+  .advanced-toggle:hover { color: var(--accent); }
+
+  /* Drag-to-reorder */
+  .image-card.dragging {
+    opacity: 0.4;
+    border: 2px dashed var(--accent);
+  }
+
+  .image-card.drag-over-card {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(240,192,64,0.3);
+  }
+
+  /* Output thumbnail in download list */
+  .download-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    gap: 12px;
+  }
+
+  .dl-thumb {
+    width: 48px;
+    height: 48px;
+    border-radius: 5px;
+    object-fit: cover;
+    background: var(--surface);
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+
+  .dl-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* URL Library */
+  .library-batches {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .library-batch {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .library-batch-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    gap: 10px;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+  }
+
+  .library-batch-header:hover { background: rgba(240,192,64,0.04); }
+  .library-batch.open .library-batch-header { border-bottom-color: var(--border); }
+
+  .library-batch-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    flex: 1;
+  }
+
+  .library-batch-meta {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .library-batch-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .library-batch-chevron {
+    font-size: 11px;
+    color: var(--muted);
+    transition: transform 0.2s;
+    width: 14px;
+    text-align: center;
+  }
+
+  .library-batch.open .library-batch-chevron { transform: rotate(90deg); }
+
+  .library-batch-body {
+    display: none;
+    padding: 12px 14px;
+    gap: 8px;
+    flex-direction: column;
+  }
+
+  .library-batch.open .library-batch-body { display: flex; }
+
+  .library-url-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    background: var(--surface);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .library-url-filename {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    width: 140px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .library-url-link {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--accent);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .library-url-del {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .library-url-del:hover { color: var(--danger); }
+
+  .library-empty {
+    text-align: center;
+    padding: 32px;
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
 </style>
 </head>
 <body>
@@ -560,6 +908,13 @@
 </header>
 
 <div class="container">
+
+  <!-- Presets Bar -->
+  <div class="presets-bar" id="presetsBar">
+    <div class="preset-label">PRESETS</div>
+    <div class="preset-slots" id="presetSlots"></div>
+    <button class="btn btn-secondary" id="savePresetBtn" style="padding:7px 14px;font-size:12px;">＋ Save Current</button>
+  </div>
 
   <!-- Settings -->
   <div class="settings-grid">
@@ -593,11 +948,6 @@
     </div>
 
     <div class="setting-card">
-      <div class="setting-label">Start Sequence At</div>
-      <input type="number" id="startNum" min="1" value="1">
-    </div>
-
-    <div class="setting-card">
       <div class="setting-label">Background Color</div>
       <div class="bg-color-options">
         <label class="bg-swatch-label">
@@ -615,15 +965,63 @@
           <span class="bg-swatch swatch-black" title="Black"></span>
         </label>
       </div>
-      <div class="hint" id="bgHint">No background fill applied</div>
+      <div class="hint" id="bgHint">No background fill applied. Best used with transparent PNGs.</div>
     </div>
 
-    <div class="setting-card" style="grid-column: span 2;">
-      <div class="setting-label">eBay HTML Links — Image Base URL</div>
-      <div class="ebay-url-row">
-        <input type="text" id="ebayBaseUrl" placeholder="https://i.ebayimg.com/images/g/your-folder/">
+    <div class="setting-card">
+      <div class="setting-label">Resize</div>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" id="resizeToggle">
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label">Custom dimensions</span>
       </div>
-      <div class="hint">Leave blank to skip eBay link generation. Final URL = base + filename</div>
+      <div id="resizeFields" style="display:none; margin-top:10px;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <div style="flex:1">
+            <div class="hint" style="margin-bottom:4px;">Width (px)</div>
+            <input type="number" id="resizeWidth" min="1" placeholder="e.g. 1600">
+          </div>
+          <div style="flex:1">
+            <div class="hint" style="margin-bottom:4px;">Height (px)</div>
+            <input type="number" id="resizeHeight" min="1" placeholder="e.g. 1600">
+          </div>
+        </div>
+        <div class="toggle-row" style="margin-top:10px;">
+          <label class="toggle">
+            <input type="checkbox" id="aspectToggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" style="font-size:12px;">Lock aspect ratio</span>
+        </div>
+        <div class="hint" style="margin-top:6px;">Leave one field blank to auto-calculate</div>
+      </div>
+      <div class="hint" id="resizeHint" style="margin-top:8px;">Original dimensions preserved</div>
+    </div>
+
+    <div class="setting-card">
+      <div class="setting-label">Auto-Process on Upload</div>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" id="autoProcessToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label">Full pipeline on drop</span>
+      </div>
+      <div class="hint" style="margin-top:8px;">Removes bg, applies color, resizes &amp; converts on upload automatically.</div>
+
+      <!-- Advanced collapsed section -->
+      <div style="margin-top:12px;">
+        <button class="advanced-toggle" id="advancedToggleBtn" type="button">▸ Advanced</button>
+        <div id="advancedFields" style="display:none; margin-top:10px;">
+          <div class="setting-label" style="margin-bottom:6px;">Start Sequence At</div>
+          <input type="number" id="startNum" min="1" value="1" style="width:100%;">
+          <div class="setting-label" style="margin-top:12px; margin-bottom:6px;">eBay HTML Base URL</div>
+          <input type="text" id="ebayBaseUrl" placeholder="https://i.ebayimg.com/images/g/..." style="width:100%;">
+          <div class="hint">Leave blank to skip eBay link generation</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -643,8 +1041,9 @@
     </div>
     <div class="image-grid" id="imageGrid"></div>
 
-    <div class="action-bar">
+    <div class="action-bar" id="actionBar">
       <button class="btn btn-primary" id="convertBtn">⚡ Convert &amp; Process</button>
+      <button class="btn btn-secondary" id="removeBgBtn">✂ Remove Background</button>
       <button class="btn btn-secondary" id="imgurBtn">☁ Upload to Imgur &amp; Get URLs</button>
       <button class="btn btn-danger" id="clearBtn">🗑 Clear All</button>
     </div>
@@ -660,6 +1059,10 @@
     <div class="progress-bar-wrap" id="progressWrap">
       <div class="progress-bar" id="progressBar"></div>
     </div>
+    <div class="process-status-bar" id="processStatusBar" style="display:none">
+      <div class="process-status-steps" id="processStatusSteps"></div>
+      <div class="process-status-detail" id="processStatusDetail"></div>
+    </div>
     <div style="height:12px"></div>
     <button class="btn btn-primary dl-all-btn" id="downloadAllBtn">⬇ Download All</button>
     <div class="download-list" id="downloadList"></div>
@@ -674,13 +1077,13 @@
     <textarea class="output-box" id="ebayOutput" readonly></textarea>
   </div>
 
-  <!-- Output: Imgur URLs -->
+  <!-- Output: Imgur URLs (current batch) -->
   <div class="output-section" id="imgurSection" style="display:none">
     <div class="output-header">
-      <div class="output-title">Imgur URLs</div>
+      <div class="output-title">Imgur URLs — Current Batch</div>
       <div style="display:flex;gap:8px">
         <button class="copy-btn" id="copyImgurBtn">Copy All</button>
-        <button class="copy-btn" id="exportImgurBtn">Export .txt</button>
+        <button class="copy-btn" id="exportImgurBtn">Export CSV</button>
       </div>
     </div>
     <div class="progress-bar-wrap" id="imgurProgressWrap">
@@ -690,10 +1093,45 @@
     <textarea class="output-box" id="imgurOutput" readonly placeholder="URLs will appear here after upload..."></textarea>
   </div>
 
+  <!-- URL Library -->
+  <div class="output-section" id="urlLibrarySection" style="display:none">
+    <div class="output-header">
+      <div class="output-title">URL Library</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span class="count-badge" id="libraryBadge">0 batches</span>
+        <button class="copy-btn" id="exportAllLibraryBtn">Export All CSV</button>
+        <button class="copy-btn" id="clearLibraryBtn" style="color:var(--danger);">Clear All</button>
+      </div>
+    </div>
+    <div class="library-batches" id="libraryBatches"></div>
+  </div>
+
+  <!-- Output: Remove Background -->
+  <div class="output-section" id="removeBgSection" style="display:none">
+    <div class="output-header">
+      <div class="output-title">Background Removed</div>
+      <button class="copy-btn" id="downloadAllRemovedBtn">⬇ Download All</button>
+    </div>
+    <div class="progress-bar-wrap" id="removeBgProgressWrap">
+      <div class="progress-bar" id="removeBgProgressBar"></div>
+    </div>
+    <div class="imgur-status" id="removeBgStatus"></div>
+    <div class="download-list" id="removeBgList"></div>
+    <div class="removed-preview-grid" id="removedPreviewGrid"></div>
+  </div>
+
 </div>
 
 <script>
   const imgurBtn = document.getElementById('imgurBtn');
+  const removeBgBtn = document.getElementById('removeBgBtn');
+  const removeBgSection = document.getElementById('removeBgSection');
+  const removeBgProgressWrap = document.getElementById('removeBgProgressWrap');
+  const removeBgProgressBar = document.getElementById('removeBgProgressBar');
+  const removeBgStatus = document.getElementById('removeBgStatus');
+  const removeBgList = document.getElementById('removeBgList');
+  const removedPreviewGrid = document.getElementById('removedPreviewGrid');
+  const downloadAllRemovedBtn = document.getElementById('downloadAllRemovedBtn');
   const imgurSection = document.getElementById('imgurSection');
   const imgurOutput = document.getElementById('imgurOutput');
   const copyImgurBtn = document.getElementById('copyImgurBtn');
@@ -724,14 +1162,132 @@
   let imgurUrls = [];
   let imgurOutNames = [];
 
+  // Advanced toggle
+  document.getElementById('advancedToggleBtn').addEventListener('click', function() {
+    const fields = document.getElementById('advancedFields');
+    const open = fields.style.display !== 'none';
+    fields.style.display = open ? 'none' : 'block';
+    this.textContent = open ? '▸ Advanced' : '▾ Advanced';
+  });
+
+  // Action bar visibility based on auto-process toggle
+  function updateActionBar() {
+    const auto = document.getElementById('autoProcessToggle').checked;
+    document.getElementById('convertBtn').style.display = auto ? 'none' : '';
+    document.getElementById('removeBgBtn').style.display = auto ? 'none' : '';
+  }
+
+  document.getElementById('autoProcessToggle').addEventListener('change', updateActionBar);
+  updateActionBar();
+
+  // ── Preset Management ──────────────────────────────────────────────
+  const PRESET_KEY = 'imgToolkitPresets';
+
+  function getSettings() {
+    return {
+      outputFormat: document.getElementById('outputFormat').value,
+      quality: document.getElementById('quality').value,
+      renameToggle: document.getElementById('renameToggle').checked,
+      renamePrefix: document.getElementById('renamePrefix').value,
+      startNum: document.getElementById('startNum').value,
+      bgColor: document.querySelector('input[name="bgColor"]:checked').value,
+      resizeToggle: document.getElementById('resizeToggle').checked,
+      resizeWidth: document.getElementById('resizeWidth').value,
+      resizeHeight: document.getElementById('resizeHeight').value,
+      aspectToggle: document.getElementById('aspectToggle').checked,
+      autoProcess: document.getElementById('autoProcessToggle').checked,
+      ebayBaseUrl: document.getElementById('ebayBaseUrl').value,
+    };
+  }
+
+  function applySettings(s) {
+    document.getElementById('outputFormat').value = s.outputFormat || 'image/jpeg';
+    document.getElementById('quality').value = s.quality || 90;
+    document.getElementById('renameToggle').checked = s.renameToggle !== false;
+    document.getElementById('renamePrefix').value = s.renamePrefix || 'image';
+    document.getElementById('startNum').value = s.startNum || 1;
+    document.querySelector(`input[name="bgColor"][value="${s.bgColor || 'none'}"]`).checked = true;
+    document.getElementById('resizeToggle').checked = !!s.resizeToggle;
+    document.getElementById('resizeFields').style.display = s.resizeToggle ? 'block' : 'none';
+    document.getElementById('resizeWidth').value = s.resizeWidth || '';
+    document.getElementById('resizeHeight').value = s.resizeHeight || '';
+    document.getElementById('aspectToggle').checked = s.aspectToggle !== false;
+    document.getElementById('autoProcessToggle').checked = s.autoProcess !== false;
+    document.getElementById('ebayBaseUrl').value = s.ebayBaseUrl || '';
+    updateActionBar();
+    renderGrid();
+  }
+
+  function loadPresets() {
+    try { return JSON.parse(localStorage.getItem(PRESET_KEY) || '[]'); } catch { return []; }
+  }
+
+  function savePresets(presets) {
+    localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
+  }
+
+  function renderPresets() {
+    const slots = document.getElementById('presetSlots');
+    const presets = loadPresets();
+    slots.innerHTML = '';
+    if (!presets.length) {
+      slots.innerHTML = '<span class="preset-empty">No presets saved yet</span>';
+      return;
+    }
+    presets.forEach((p, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'preset-chip';
+      chip.title = `Format: ${p.settings.outputFormat}, BG: ${p.settings.bgColor}, Prefix: ${p.settings.renamePrefix}`;
+
+      const label = document.createElement('span');
+      label.textContent = p.name;
+      label.style.cursor = 'pointer';
+      label.addEventListener('click', () => { applySettings(p.settings); });
+
+      const del = document.createElement('button');
+      del.className = 'preset-chip-del';
+      del.textContent = '×';
+      del.title = 'Delete preset';
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const all = loadPresets();
+        all.splice(idx, 1);
+        savePresets(all);
+        renderPresets();
+      });
+
+      chip.append(label, del);
+      slots.appendChild(chip);
+    });
+  }
+
+  document.getElementById('savePresetBtn').addEventListener('click', () => {
+    const name = prompt('Name this preset:');
+    if (!name || !name.trim()) return;
+    const presets = loadPresets();
+    presets.push({ name: name.trim(), settings: getSettings() });
+    savePresets(presets);
+    renderPresets();
+  });
+
+  renderPresets();
+
+  // Resize toggle
+  document.getElementById('resizeToggle').addEventListener('change', function () {
+    const fields = document.getElementById('resizeFields');
+    const hint = document.getElementById('resizeHint');
+    fields.style.display = this.checked ? 'block' : 'none';
+    hint.textContent = this.checked ? 'Custom dimensions will be applied' : 'Original dimensions preserved';
+  });
+
   // Background color hint
   document.querySelectorAll('input[name="bgColor"]').forEach(radio => {
     radio.addEventListener('change', () => {
       const val = radio.value;
       const hint = document.getElementById('bgHint');
-      if (val === 'none') hint.textContent = 'No background fill applied';
-      else if (val === '#ffffff') hint.textContent = 'White background will be applied';
-      else if (val === '#000000') hint.textContent = 'Black background will be applied';
+      if (val === 'none') hint.textContent = 'No background fill applied. Best used with transparent PNGs.';
+      else if (val === '#ffffff') hint.textContent = 'White background applied. Works on transparent images.';
+      else if (val === '#000000') hint.textContent = 'Black background applied. Works on transparent images.';
     });
   });
 
@@ -756,7 +1312,143 @@
     downloadSection.style.display = 'none';
     ebaySection.style.display = 'none';
     convertedBlobs = [];
+
+    // Auto-process if toggle is on
+    if (document.getElementById('autoProcessToggle').checked) {
+      autoProcess(newFiles);
+    }
   }
+
+  async function autoProcess(newFiles) {
+    if (!newFiles.length) return;
+
+    const fmt = document.getElementById('outputFormat').value;
+    const quality = (parseInt(document.getElementById('quality').value) || 90) / 100;
+    const ext = fmt === 'image/jpeg' ? 'jpg' : fmt === 'image/png' ? 'png' : 'webp';
+    const renameOn = document.getElementById('renameToggle').checked;
+    const prefix = document.getElementById('renamePrefix').value.trim() || 'image';
+    const startNum = parseInt(document.getElementById('startNum').value) || 1;
+    const bgColor = document.querySelector('input[name="bgColor"]:checked').value;
+    const resizeOpts = getResizeOpts();
+    const baseUrl = document.getElementById('ebayBaseUrl').value.trim();
+    const fileOffset = files.length - newFiles.length;
+
+    // Show progress UI
+    downloadSection.style.display = 'block';
+    progressWrap.style.display = 'block';
+    progressBar.style.width = '0%';
+    downloadList.innerHTML = '';
+
+    const statusBar = document.getElementById('processStatusBar');
+    const statusSteps = document.getElementById('processStatusSteps');
+    const statusDetail = document.getElementById('processStatusDetail');
+    statusBar.style.display = 'block';
+
+    const steps = ['Load AI', 'Remove BG', 'Apply Color', 'Resize', 'Convert', 'Done'];
+
+    function renderSteps(activeIdx, errorIdx = -1) {
+      statusSteps.innerHTML = '';
+      steps.forEach((label, i) => {
+        if (i > 0) {
+          const arrow = document.createElement('span');
+          arrow.className = 'step-arrow';
+          arrow.textContent = '›';
+          statusSteps.appendChild(arrow);
+        }
+        const pill = document.createElement('span');
+        pill.className = 'step-pill';
+        if (i === errorIdx) {
+          pill.classList.add('error');
+          pill.textContent = '✕ ' + label;
+        } else if (i < activeIdx) {
+          pill.classList.add('done');
+          pill.textContent = '✓ ' + label;
+        } else if (i === activeIdx) {
+          pill.classList.add('active');
+          pill.textContent = '⟳ ' + label;
+        } else {
+          pill.textContent = label;
+        }
+        statusSteps.appendChild(pill);
+      });
+    }
+
+    // Step 0: Load AI model
+    renderSteps(0);
+    statusDetail.textContent = 'Loading RMBG-1.4 model (cached after first run)…';
+
+    try {
+      await ensureModel();
+    } catch (e) {
+      renderSteps(0, 0);
+      statusDetail.textContent = 'Model load failed: ' + e.message;
+      showStatus('AI model failed to load. Use Convert & Process for manual workflow.', 'error');
+      return;
+    }
+
+    renderSteps(1);
+    const ebayLinks = [];
+
+    for (let i = 0; i < newFiles.length; i++) {
+      const file = newFiles[i];
+      const globalIdx = fileOffset + i;
+      const seqNum = String(startNum + globalIdx).padStart(3, '0');
+      const outName = renameOn ? `${prefix}-${seqNum}.${ext}` : file.name.replace(/\.[^.]+$/, '') + '.' + ext;
+
+      try {
+        // Step 1: Remove background
+        renderSteps(1);
+        statusDetail.textContent = `[${i + 1}/${newFiles.length}] ${file.name} — removing background…`;
+        const nobgBlob = await runRmbg(file);
+
+        // Step 2: Apply color
+        renderSteps(2);
+        statusDetail.textContent = `[${i + 1}/${newFiles.length}] ${outName} — applying background color…`;
+
+        // Step 3: Resize
+        renderSteps(3);
+        statusDetail.textContent = `[${i + 1}/${newFiles.length}] ${outName} — resizing…`;
+
+        // Step 4: Convert format
+        renderSteps(4);
+        statusDetail.textContent = `[${i + 1}/${newFiles.length}] ${outName} — converting to ${ext.toUpperCase()}…`;
+        const nobgFile = new File([nobgBlob], file.name, { type: 'image/png' });
+        const finalBlob = await convertImage(nobgFile, fmt, quality, bgColor, resizeOpts);
+
+        convertedBlobs.push({ blob: finalBlob, name: outName });
+
+        // Download row
+        const url = URL.createObjectURL(finalBlob);
+        downloadList.appendChild(createDownloadRow(outName, url, url));
+
+        if (baseUrl) {
+          const fullUrl = baseUrl.replace(/\/$/, '') + '/' + outName;
+          ebayLinks.push(`<img src="${fullUrl}" alt="${outName}" style="max-width:100%;">`);
+        }
+
+      } catch (err) {
+        console.error(err);
+        renderSteps(-1, 1);
+        statusDetail.textContent = `Error on ${file.name}: ${err.message}`;
+      }
+
+      progressBar.style.width = `${Math.round(((i + 1) / newFiles.length) * 100)}%`;
+    }
+
+    // All done
+    renderSteps(5);
+    statusDetail.textContent = `✓ ${convertedBlobs.length} of ${newFiles.length} images completed.`;
+    showStatus(`✓ ${convertedBlobs.length} image${convertedBlobs.length !== 1 ? 's' : ''} auto-processed successfully.`, 'success');
+
+    if (ebayLinks.length > 0) {
+      ebayOutput.value = ebayLinks.join('\n');
+      ebaySection.style.display = 'block';
+    }
+
+    setTimeout(() => { progressWrap.style.display = 'none'; }, 800);
+  }
+
+  let dragSrcIdx = null;
 
   function renderGrid() {
     imageGrid.innerHTML = '';
@@ -776,6 +1468,38 @@
     files.forEach((file, i) => {
       const card = document.createElement('div');
       card.className = 'image-card';
+      card.draggable = true;
+      card.dataset.idx = i;
+
+      // Drag-to-reorder events
+      card.addEventListener('dragstart', e => {
+        dragSrcIdx = i;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        document.querySelectorAll('.image-card').forEach(c => c.classList.remove('drag-over-card'));
+      });
+      card.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        document.querySelectorAll('.image-card').forEach(c => c.classList.remove('drag-over-card'));
+        card.classList.add('drag-over-card');
+      });
+      card.addEventListener('drop', e => {
+        e.preventDefault();
+        if (dragSrcIdx === null || dragSrcIdx === i) return;
+        const moved = files.splice(dragSrcIdx, 1)[0];
+        files.splice(i, 0, moved);
+        dragSrcIdx = null;
+        renderGrid();
+      });
+
+      const dragHandle = document.createElement('div');
+      dragHandle.className = 'drag-handle';
+      dragHandle.textContent = '⠿';
+      dragHandle.title = 'Drag to reorder';
 
       const img = document.createElement('img');
       img.src = URL.createObjectURL(file);
@@ -809,7 +1533,7 @@
         renderGrid();
       };
 
-      card.append(img, info, removeBtn);
+      card.append(dragHandle, img, info, removeBtn);
       imageGrid.appendChild(card);
     });
   }
@@ -819,6 +1543,33 @@
     document.getElementById(id).addEventListener('change', renderGrid);
     document.getElementById(id).addEventListener('input', renderGrid);
   });
+
+  function createDownloadRow(outName, blobUrl, thumbUrl) {
+    const item = document.createElement('div');
+    item.className = 'download-item';
+
+    const thumb = document.createElement('img');
+    thumb.className = 'dl-thumb';
+    thumb.src = thumbUrl || blobUrl;
+
+    const info = document.createElement('div');
+    info.className = 'dl-info';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'dl-name';
+    nameEl.textContent = outName;
+
+    info.appendChild(nameEl);
+
+    const dlBtn = document.createElement('a');
+    dlBtn.className = 'dl-btn';
+    dlBtn.href = blobUrl;
+    dlBtn.download = outName;
+    dlBtn.textContent = 'Save';
+
+    item.append(thumb, info, dlBtn);
+    return item;
+  }
 
   clearBtn.addEventListener('click', () => {
     files = [];
@@ -852,6 +1603,7 @@
     const startNum = parseInt(document.getElementById('startNum').value) || 1;
     const baseUrl = document.getElementById('ebayBaseUrl').value.trim();
     const bgColor = document.querySelector('input[name="bgColor"]:checked').value;
+    const resizeOpts = getResizeOpts();
 
     const ebayLinks = [];
 
@@ -863,26 +1615,11 @@
         : file.name.replace(/\.[^.]+$/, '') + '.' + ext;
 
       try {
-        const blob = await convertImage(file, fmt, quality, bgColor);
+        const blob = await convertImage(file, fmt, quality, bgColor, resizeOpts);
         convertedBlobs.push({ blob, name: outName });
 
-        // Download item
         const url = URL.createObjectURL(blob);
-        const item = document.createElement('div');
-        item.className = 'download-item';
-
-        const nameEl = document.createElement('div');
-        nameEl.className = 'dl-name';
-        nameEl.textContent = outName;
-
-        const dlBtn = document.createElement('a');
-        dlBtn.className = 'dl-btn';
-        dlBtn.href = url;
-        dlBtn.download = outName;
-        dlBtn.textContent = 'Save';
-
-        item.append(nameEl, dlBtn);
-        downloadList.appendChild(item);
+        downloadList.appendChild(createDownloadRow(outName, url, url));
 
         // eBay link
         if (baseUrl) {
@@ -931,23 +1668,64 @@
     });
   });
 
-  function convertImage(file, fmt, quality, bgColor) {
+  function getResizeOpts() {
+    const enabled = document.getElementById('resizeToggle').checked;
+    if (!enabled) return { enabled: false };
+    return {
+      enabled: true,
+      width: parseInt(document.getElementById('resizeWidth').value) || null,
+      height: parseInt(document.getElementById('resizeHeight').value) || null,
+      lockAspect: document.getElementById('aspectToggle').checked
+    };
+  }
+
+  function convertImage(file, fmt, quality, bgColor, resizeOpts) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
         URL.revokeObjectURL(url);
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        // Apply background color if selected, or default white for JPEG
-        const fill = bgColor !== 'none' ? bgColor : (fmt === 'image/jpeg' ? '#ffffff' : null);
-        if (fill) {
-          ctx.fillStyle = fill;
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        let outW = img.naturalWidth;
+        let outH = img.naturalHeight;
+
+        if (resizeOpts && resizeOpts.enabled) {
+          const { width, height, lockAspect } = resizeOpts;
+          const srcRatio = img.naturalWidth / img.naturalHeight;
+
+          if (width && height) {
+            outW = width;
+            outH = lockAspect ? Math.round(width / srcRatio) : height;
+          } else if (width) {
+            outW = width;
+            outH = Math.round(width / srcRatio);
+          } else if (height) {
+            outH = height;
+            outW = Math.round(height * srcRatio);
+          }
         }
-        ctx.drawImage(img, 0, 0);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = outW;
+        canvas.height = outH;
+        const ctx = canvas.getContext('2d');
+
+        // Always clear canvas first
+        ctx.clearRect(0, 0, outW, outH);
+
+        // Determine background fill
+        const fill = bgColor !== 'none' ? bgColor : (fmt === 'image/jpeg' ? '#ffffff' : null);
+
+        if (fill) {
+          // Fill background first
+          ctx.fillStyle = fill;
+          ctx.fillRect(0, 0, outW, outH);
+          // Draw image on top using source-over so image pixels replace bg where opaque
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.drawImage(img, 0, 0, outW, outH);
+        } else {
+          ctx.drawImage(img, 0, 0, outW, outH);
+        }
         canvas.toBlob(blob => {
           if (blob) resolve(blob);
           else reject(new Error('Conversion failed'));
@@ -960,7 +1738,9 @@
 
   // Imgur Upload
   imgurBtn.addEventListener('click', async () => {
-    if (files.length === 0) { showStatus('No images loaded. Please add images first.', 'error'); return; }
+    if (files.length === 0 && convertedBlobs.length === 0) {
+      showStatus('No images loaded. Please add images first.', 'error'); return;
+    }
 
     imgurBtn.disabled = true;
     imgurBtn.textContent = 'Uploading…';
@@ -970,27 +1750,41 @@
     imgurProgressWrap.style.display = 'block';
     imgurProgressBar.style.width = '0%';
 
-    const fmt = document.getElementById('outputFormat').value;
-    const quality = (parseInt(document.getElementById('quality').value) || 90) / 100;
-    const bgColor = document.querySelector('input[name="bgColor"]:checked').value;
-    const renameOn = document.getElementById('renameToggle').checked;
-    const prefix = document.getElementById('renamePrefix').value.trim() || 'image';
-    const startNum = parseInt(document.getElementById('startNum').value) || 1;
-    const ext = fmt === 'image/jpeg' ? 'jpg' : fmt === 'image/png' ? 'png' : 'webp';
-
     imgurUrls = [];
     imgurOutNames = [];
     const errors = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const seqNum = String(startNum + i).padStart(3, '0');
-      const outName = renameOn ? `${prefix}-${seqNum}.${ext}` : file.name.replace(/\.[^.]+$/, '') + '.' + ext;
+    // Use already-processed blobs if available (full pipeline ran), else convert raw files
+    const useProcessed = convertedBlobs.length > 0;
+    const sourceBlobs = useProcessed
+      ? convertedBlobs
+      : await (async () => {
+          const fmt = document.getElementById('outputFormat').value;
+          const quality = (parseInt(document.getElementById('quality').value) || 90) / 100;
+          const bgColor = document.querySelector('input[name="bgColor"]:checked').value;
+          const renameOn = document.getElementById('renameToggle').checked;
+          const prefix = document.getElementById('renamePrefix').value.trim() || 'image';
+          const startNum = parseInt(document.getElementById('startNum').value) || 1;
+          const ext = fmt === 'image/jpeg' ? 'jpg' : fmt === 'image/png' ? 'png' : 'webp';
+          const resizeOpts = getResizeOpts();
+          const blobs = [];
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const seqNum = String(startNum + i).padStart(3, '0');
+            const name = renameOn ? `${prefix}-${seqNum}.${ext}` : file.name.replace(/\.[^.]+$/, '') + '.' + ext;
+            try {
+              const blob = await convertImage(file, fmt, quality, bgColor, resizeOpts);
+              blobs.push({ blob, name });
+            } catch (e) { errors.push(`${name}: ${e.message}`); }
+          }
+          return blobs;
+        })();
 
-      imgurStatus.textContent = `Uploading ${i + 1} of ${files.length}: ${outName}`;
+    for (let i = 0; i < sourceBlobs.length; i++) {
+      const { blob, name: outName } = sourceBlobs[i];
+      imgurStatus.textContent = `Uploading ${i + 1} of ${sourceBlobs.length}: ${outName}`;
 
       try {
-        const blob = await convertImage(file, fmt, quality, bgColor);
         const base64 = await blobToBase64(blob);
         const imgData = base64.split(',')[1];
 
@@ -1014,7 +1808,7 @@
         errors.push(`${outName}: ${err.message}`);
       }
 
-      imgurProgressBar.style.width = `${Math.round(((i + 1) / files.length) * 100)}%`;
+      imgurProgressBar.style.width = `${Math.round(((i + 1) / sourceBlobs.length) * 100)}%`;
     }
 
     // Build paired display: filename → URL per line
@@ -1024,8 +1818,16 @@
 
     imgurBtn.disabled = false;
     imgurBtn.textContent = '☁ Upload to Imgur & Get URLs';
-    imgurStatus.textContent = `✓ ${imgurUrls.length} uploaded${errors.length ? ` · ${errors.length} failed` : ''}`;
+    imgurStatus.textContent = `✓ ${imgurUrls.length} uploaded${errors.length ? ` · ${errors.length} failed` : ''}${useProcessed ? ' (from processed batch)' : ''}`;
     setTimeout(() => { imgurProgressWrap.style.display = 'none'; }, 600);
+
+    // Save batch to URL library
+    if (imgurUrls.length > 0) {
+      const prefix = document.getElementById('renamePrefix').value.trim() || 'image';
+      const batchName = prefix + ' — ' + imgurUrls.length + ' image' + (imgurUrls.length !== 1 ? 's' : '');
+      const entries = imgurOutNames.map((name, i) => ({ filename: name, url: imgurUrls[i] }));
+      addBatchToLibrary(batchName, entries);
+    }
   });
 
   copyImgurBtn.addEventListener('click', () => {
@@ -1052,6 +1854,396 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  });
+
+  // ── URL Library ────────────────────────────────────────────────────
+  const LIBRARY_KEY = 'imgToolkitUrlLibrary';
+
+  function loadLibrary() {
+    try { return JSON.parse(localStorage.getItem(LIBRARY_KEY) || '[]'); } catch { return []; }
+  }
+
+  function saveLibrary(lib) {
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib));
+  }
+
+  function addBatchToLibrary(batchName, entries) {
+    // entries = [{filename, url}]
+    const lib = loadLibrary();
+    lib.push({
+      id: Date.now(),
+      name: batchName,
+      date: new Date().toLocaleString(),
+      entries
+    });
+    saveLibrary(lib);
+    renderLibrary();
+  }
+
+  function renderLibrary() {
+    const lib = loadLibrary();
+    const section = document.getElementById('urlLibrarySection');
+    const batchesEl = document.getElementById('libraryBatches');
+    const badge = document.getElementById('libraryBadge');
+
+    section.style.display = lib.length ? 'block' : 'none';
+    badge.textContent = `${lib.length} batch${lib.length !== 1 ? 'es' : ''} · ${lib.reduce((s,b) => s + b.entries.length, 0)} URLs`;
+
+    batchesEl.innerHTML = '';
+
+    if (!lib.length) {
+      batchesEl.innerHTML = '<div class="library-empty">No batches saved yet. Upload images to Imgur to start collecting URLs.</div>';
+      return;
+    }
+
+    lib.forEach((batch, bIdx) => {
+      const batchEl = document.createElement('div');
+      batchEl.className = 'library-batch';
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'library-batch-header';
+
+      const chevron = document.createElement('span');
+      chevron.className = 'library-batch-chevron';
+      chevron.textContent = '›';
+
+      const title = document.createElement('div');
+      title.className = 'library-batch-title';
+      title.textContent = batch.name;
+
+      const meta = document.createElement('div');
+      meta.className = 'library-batch-meta';
+      meta.textContent = `${batch.entries.length} URL${batch.entries.length !== 1 ? 's' : ''} · ${batch.date}`;
+
+      const actions = document.createElement('div');
+      actions.className = 'library-batch-actions';
+
+      const exportBtn = document.createElement('button');
+      exportBtn.className = 'copy-btn';
+      exportBtn.textContent = 'CSV';
+      exportBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        exportBatchCSV(batch);
+      });
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.textContent = 'Copy URLs';
+      copyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pipeUrls = batch.entries.map(e => e.url).join(' | ');
+        navigator.clipboard.writeText(pipeUrls).then(() => {
+          copyBtn.textContent = 'Copied!';
+          copyBtn.classList.add('copied');
+          setTimeout(() => { copyBtn.textContent = 'Copy URLs'; copyBtn.classList.remove('copied'); }, 2000);
+        });
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'copy-btn';
+      delBtn.style.color = 'var(--danger)';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm(`Delete batch "${batch.name}"?`)) return;
+        const lib = loadLibrary();
+        lib.splice(bIdx, 1);
+        saveLibrary(lib);
+        renderLibrary();
+      });
+
+      actions.append(exportBtn, copyBtn, delBtn);
+      header.append(chevron, title, meta, actions);
+
+      // Toggle open/close
+      header.addEventListener('click', () => {
+        batchEl.classList.toggle('open');
+      });
+
+      // Body
+      const body = document.createElement('div');
+      body.className = 'library-batch-body';
+
+      batch.entries.forEach((entry, eIdx) => {
+        const row = document.createElement('div');
+        row.className = 'library-url-row';
+
+        const fname = document.createElement('div');
+        fname.className = 'library-url-filename';
+        fname.title = entry.filename;
+        fname.textContent = entry.filename;
+
+        const link = document.createElement('a');
+        link.className = 'library-url-link';
+        link.href = entry.url;
+        link.target = '_blank';
+        link.textContent = entry.url;
+
+        const del = document.createElement('button');
+        del.className = 'library-url-del';
+        del.title = 'Remove this URL';
+        del.textContent = '×';
+        del.addEventListener('click', () => {
+          const lib = loadLibrary();
+          lib[bIdx].entries.splice(eIdx, 1);
+          if (lib[bIdx].entries.length === 0) lib.splice(bIdx, 1);
+          saveLibrary(lib);
+          renderLibrary();
+        });
+
+        row.append(fname, link, del);
+        body.appendChild(row);
+      });
+
+      batchEl.append(header, body);
+      batchesEl.appendChild(batchEl);
+    });
+  }
+
+  function exportBatchCSV(batch) {
+    const prefix = batch.name;
+    const col2 = batch.entries.map(e => e.url).join(' | ');
+    const csv = `Filenames,URLs\n"${prefix}","${col2}"`;
+    downloadText(csv, `${prefix}-urls.csv`, 'text/csv');
+  }
+
+  function exportAllLibraryCSV() {
+    const lib = loadLibrary();
+    if (!lib.length) return;
+    const rows = lib.map(b => `"${b.name}","${b.entries.map(e => e.url).join(' | ')}"`);
+    const csv = `Filenames,URLs\n${rows.join('\n')}`;
+    downloadText(csv, 'url-library-all.csv', 'text/csv');
+  }
+
+  function downloadText(text, filename, type) {
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById('exportAllLibraryBtn').addEventListener('click', exportAllLibraryCSV);
+
+  document.getElementById('clearLibraryBtn').addEventListener('click', () => {
+    if (!confirm('Clear the entire URL library? This cannot be undone.')) return;
+    localStorage.removeItem(LIBRARY_KEY);
+    renderLibrary();
+  });
+
+  // Init library on load
+  renderLibrary();
+
+  let removedBlobs = [];
+  let ortSession = null;
+  const MODEL_URL  = 'https://huggingface.co/briaai/RMBG-1.4/resolve/main/onnx/model.onnx';
+  const MODEL_SIZE = 1024;
+
+  async function ensureModel() {
+    if (ortSession) return;
+
+    // Show loading status
+    removeBgStatus.textContent = 'Downloading AI model (~170MB, cached after first run)…';
+    removeBgProgressWrap.style.display = 'block';
+    removeBgProgressBar.style.width = '0%';
+
+    const response = await fetch(MODEL_URL);
+    if (!response.ok) throw new Error('Model download failed: HTTP ' + response.status);
+
+    const total = parseInt(response.headers.get('content-length') || '0');
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      if (total > 0) {
+        const pct = Math.round((received / total) * 100);
+        removeBgProgressBar.style.width = pct + '%';
+        removeBgStatus.textContent = `Downloading model… ${pct}% (${(received/1048576).toFixed(1)}MB / ${(total/1048576).toFixed(1)}MB)`;
+      }
+    }
+
+    const modelBytes = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) { modelBytes.set(chunk, offset); offset += chunk.length; }
+
+    removeBgStatus.textContent = 'Loading model into browser…';
+    ortSession = await ort.InferenceSession.create(modelBytes.buffer, {
+      executionProviders: ['wasm'],
+      graphOptimizationLevel: 'all',
+    });
+  }
+
+  async function runRmbg(file) {
+    const blobUrl = URL.createObjectURL(file);
+    const img = await new Promise((res, rej) => {
+      const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = blobUrl;
+    });
+    URL.revokeObjectURL(blobUrl);
+
+    const origW = img.naturalWidth;
+    const origH = img.naturalHeight;
+
+    // Preprocess: resize to 1024x1024, normalise to [-0.5, 0.5], CHW float32
+    const pre = document.createElement('canvas');
+    pre.width = pre.height = MODEL_SIZE;
+    const pCtx = pre.getContext('2d');
+    pCtx.drawImage(img, 0, 0, MODEL_SIZE, MODEL_SIZE);
+    const { data } = pCtx.getImageData(0, 0, MODEL_SIZE, MODEL_SIZE);
+
+    const float32 = new Float32Array(3 * MODEL_SIZE * MODEL_SIZE);
+    const hw = MODEL_SIZE * MODEL_SIZE;
+    for (let i = 0; i < hw; i++) {
+      float32[i]        = data[i*4]   / 255.0 - 0.5;
+      float32[hw + i]   = data[i*4+1] / 255.0 - 0.5;
+      float32[2*hw + i] = data[i*4+2] / 255.0 - 0.5;
+    }
+
+    // Run inference
+    const inputName  = ortSession.inputNames[0];
+    const outputName = ortSession.outputNames[0];
+    const feeds = { [inputName]: new ort.Tensor('float32', float32, [1, 3, MODEL_SIZE, MODEL_SIZE]) };
+    const results = await ortSession.run(feeds);
+    const outData = results[outputName].data;
+    const [,, outH, outW] = results[outputName].dims;
+
+    // Normalise mask to [0, 255]
+    let mn = Infinity, mx = -Infinity;
+    for (let i = 0; i < outData.length; i++) {
+      if (outData[i] < mn) mn = outData[i];
+      if (outData[i] > mx) mx = outData[i];
+    }
+    const range = mx - mn || 1;
+
+    const maskC = document.createElement('canvas');
+    maskC.width = outW; maskC.height = outH;
+    const mCtx = maskC.getContext('2d');
+    const maskId = mCtx.createImageData(outW, outH);
+    for (let i = 0; i < outData.length; i++) {
+      const v = Math.round(((outData[i] - mn) / range) * 255);
+      maskId.data[i*4] = maskId.data[i*4+1] = maskId.data[i*4+2] = v;
+      maskId.data[i*4+3] = 255;
+    }
+    mCtx.putImageData(maskId, 0, 0);
+
+    // Resize mask to original dimensions
+    const resC = document.createElement('canvas');
+    resC.width = origW; resC.height = origH;
+    const rCtx = resC.getContext('2d');
+    rCtx.imageSmoothingEnabled = true;
+    rCtx.imageSmoothingQuality = 'high';
+    rCtx.drawImage(maskC, 0, 0, outW, outH, 0, 0, origW, origH);
+    const maskPixels = rCtx.getImageData(0, 0, origW, origH).data;
+
+    // Apply mask as alpha to original image
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = origW; outCanvas.height = origH;
+    const oCtx = outCanvas.getContext('2d');
+    oCtx.drawImage(img, 0, 0, origW, origH);
+    const imgData = oCtx.getImageData(0, 0, origW, origH);
+    for (let i = 0; i < origW * origH; i++) {
+      imgData.data[i*4+3] = maskPixels[i*4];
+    }
+    oCtx.putImageData(imgData, 0, 0);
+
+    return new Promise(res => outCanvas.toBlob(res, 'image/png'));
+  }
+
+  removeBgBtn.addEventListener('click', async () => {
+    if (files.length === 0) { showStatus('No images loaded. Please add images first.', 'error'); return; }
+
+    removeBgBtn.disabled = true;
+    removeBgBtn.textContent = 'Removing…';
+    removedBlobs = [];
+    removeBgList.innerHTML = '';
+    removedPreviewGrid.innerHTML = '';
+    removeBgSection.style.display = 'block';
+    removeBgProgressWrap.style.display = 'block';
+    removeBgProgressBar.style.width = '0%';
+
+    try {
+      await ensureModel();
+    } catch (e) {
+      showStatus('Failed to load AI model: ' + e.message, 'error');
+      removeBgBtn.disabled = false;
+      removeBgBtn.textContent = '✂ Remove Background';
+      return;
+    }
+
+    const renameOn = document.getElementById('renameToggle').checked;
+    const prefix = document.getElementById('renamePrefix').value.trim() || 'image';
+    const startNum = parseInt(document.getElementById('startNum').value) || 1;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const seqNum = String(startNum + i).padStart(3, '0');
+      const outName = (renameOn ? `${prefix}-${seqNum}` : file.name.replace(/\.[^.]+$/, '')) + '-nobg.png';
+      removeBgStatus.textContent = `Processing ${i + 1} of ${files.length}: ${file.name}`;
+      removeBgProgressBar.style.width = `${Math.round((i / files.length) * 100)}%`;
+
+      try {
+        const blob = await runRmbg(file);
+        removedBlobs.push({ blob, name: outName });
+        const blobUrl = URL.createObjectURL(blob);
+
+        // Download row
+        const item = document.createElement('div');
+        item.className = 'download-item';
+        const nameEl = document.createElement('div');
+        nameEl.className = 'dl-name';
+        nameEl.textContent = outName;
+        const dlBtn = document.createElement('a');
+        dlBtn.className = 'dl-btn';
+        dlBtn.href = blobUrl;
+        dlBtn.download = outName;
+        dlBtn.textContent = 'Save';
+        item.append(nameEl, dlBtn);
+        removeBgList.appendChild(item);
+
+        // Preview card
+        const card = document.createElement('div');
+        card.className = 'removed-preview-card';
+        const previewImg = document.createElement('img');
+        previewImg.src = blobUrl;
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'removed-preview-name';
+        nameDiv.textContent = outName;
+        card.append(previewImg, nameDiv);
+        removedPreviewGrid.appendChild(card);
+
+      } catch (err) {
+        console.error(err);
+        removeBgStatus.textContent = `Error on ${file.name}: ${err.message}`;
+      }
+
+      removeBgProgressBar.style.width = `${Math.round(((i + 1) / files.length) * 100)}%`;
+    }
+
+    removeBgBtn.disabled = false;
+    removeBgBtn.textContent = '✂ Remove Background';
+    removeBgStatus.textContent = `✓ ${removedBlobs.length} image${removedBlobs.length !== 1 ? 's' : ''} processed.`;
+    setTimeout(() => { removeBgProgressWrap.style.display = 'none'; }, 600);
+  });
+
+  downloadAllRemovedBtn.addEventListener('click', async () => {
+    for (const { blob, name } of removedBlobs) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      await new Promise(r => setTimeout(r, 120));
+      URL.revokeObjectURL(url);
+    }
   });
 
   function blobToBase64(blob) {

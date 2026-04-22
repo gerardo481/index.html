@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Toolkit</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #1a1a1e;
+    --surface2: #242428;
+    --border: #2e2e34;
+    --accent: #f0c040;
+    --accent2: #e07030;
+    --text: #e8e8ec;
+    --muted: #888896;
+    --success: #40c080;
+    --danger: #e04060;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 0 0 60px;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+
+  .logo span { color: var(--accent2); }
+
+  .tagline {
+    font-size: 12px;
+    color: var(--muted);
+    border-left: 1px solid var(--border);
+    padding-left: 16px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  /* Settings Panel */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .setting-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+
+  .setting-label {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  select, input[type="text"], input[type="number"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  select:focus, input:focus { border-color: var(--accent); }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .toggle {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .toggle input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .toggle-slider:before {
+    content: '';
+    position: absolute;
+    width: 16px; height: 16px;
+    left: 2px; top: 2px;
+    background: var(--muted);
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+
+  .toggle input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(18px); background: #000; }
+
+  .toggle-label { font-size: 14px; color: var(--text); }
+
+  /* Drop Zone */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 28px;
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(240,192,64,0.04);
+  }
+
+  .drop-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .drop-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .drop-sub {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Image Grid */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .count-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .image-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+
+  .image-card:hover { border-color: var(--accent); }
+
+  .image-card img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    display: block;
+    background: var(--surface2);
+  }
+
+  .image-info {
+    padding: 10px 10px 8px;
+  }
+
+  .image-name {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 4px;
+  }
+
+  .image-new-name {
+    font-size: 12px;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .image-size {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .remove-btn {
+    position: absolute;
+    top: 6px; right: 6px;
+    background: rgba(14,14,16,0.85);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 24px; height: 24px;
+    color: var(--danger);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+    line-height: 1;
+  }
+
+  .remove-btn:hover { background: var(--danger); color: #fff; }
+
+  /* Action Bar */
+  .action-bar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+  }
+
+  .btn {
+    padding: 11px 22px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .btn-primary:hover { background: #f8d060; transform: translateY(-1px); }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-danger {
+    background: var(--surface);
+    color: var(--danger);
+    border: 1px solid var(--border);
+  }
+
+  .btn-danger:hover { border-color: var(--danger); background: rgba(224,64,96,0.08); }
+
+  .imgur-status {
+    padding: 0 20px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    min-height: 20px;
+    margin-top: 10px;
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Output Section */
+  .output-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .output-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .output-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .copy-btn {
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    transition: all 0.15s;
+  }
+
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .copy-btn.copied { border-color: var(--success); color: var(--success); }
+
+  textarea.output-box {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #a8d8a8;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 18px 20px;
+    resize: vertical;
+    min-height: 160px;
+    outline: none;
+    line-height: 1.7;
+  }
+
+  /* Download area */
+  .download-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 20px;
+  }
+
+  .download-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-radius: 7px;
+    border: 1px solid var(--border);
+  }
+
+  .dl-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .dl-btn {
+    font-size: 12px;
+    padding: 5px 14px;
+    border-radius: 5px;
+    background: var(--accent);
+    border: none;
+    color: #000;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    transition: background 0.15s;
+    text-decoration: none;
+    display: inline-block;
+  }
+
+  .dl-btn:hover { background: #f8d060; }
+
+  .dl-all-btn {
+    margin: 0 20px 16px;
+  }
+
+  .progress-bar-wrap {
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 4px;
+    margin: 8px 20px 0;
+    overflow: hidden;
+    display: none;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .status-msg {
+    font-size: 13px;
+    padding: 10px 16px;
+    border-radius: 7px;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  .status-msg.success { background: rgba(64,192,128,0.1); border: 1px solid var(--success); color: var(--success); display: block; }
+  .status-msg.error { background: rgba(224,64,96,0.1); border: 1px solid var(--danger); color: var(--danger); display: block; }
+
+  /* eBay URL input */
+  .ebay-url-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 8px;
+  }
+
+  .ebay-url-row input { flex: 1; }
+
+  .hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Background color swatches */
+  .bg-color-options {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .bg-swatch-label {
+    cursor: pointer;
+    position: relative;
+  }
+
+  .bg-swatch-label input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0; height: 0;
+  }
+
+  .bg-swatch {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    transition: border-color 0.15s, transform 0.15s;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .bg-swatch:hover { border-color: var(--accent); transform: scale(1.06); }
+
+  .bg-swatch-label input[type="radio"]:checked + .bg-swatch {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(240,192,64,0.3);
+  }
+
+  .swatch-none {
+    background: repeating-conic-gradient(#2e2e34 0% 25%, #1a1a1e 0% 50%) 0 0 / 12px 12px;
+  }
+
+  .swatch-text {
+    font-size: 9px;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .swatch-white { background: #ffffff; }
+  .swatch-black { background: #000000; border-color: #555; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">IMG<span>TOOL</span></div>
+  <div class="tagline">convert · rename · generate eBay links</div>
+</header>
+
+<div class="container">
+
+  <!-- Settings -->
+  <div class="settings-grid">
+    <div class="setting-card">
+      <div class="setting-label">Output Format</div>
+      <select id="outputFormat">
+        <option value="image/jpeg">JPEG</option>
+        <option value="image/png">PNG</option>
+        <option value="image/webp">WebP</option>
+      </select>
+    </div>
+
+    <div class="setting-card">
+      <div class="setting-label">Quality (JPEG/WebP)</div>
+      <input type="number" id="quality" min="10" max="100" value="90" placeholder="90">
+    </div>
+
+    <div class="setting-card">
+      <div class="setting-label">Rename Images</div>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" id="renameToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label">Sequential rename</span>
+      </div>
+      <div style="margin-top:10px">
+        <input type="text" id="renamePrefix" placeholder="e.g. product or item" value="image">
+      </div>
+      <div class="hint">→ image-001.jpg, image-002.jpg …</div>
+    </div>
+
+    <div class="setting-card">
+      <div class="setting-label">Start Sequence At</div>
+      <input type="number" id="startNum" min="1" value="1">
+    </div>
+
+    <div class="setting-card">
+      <div class="setting-label">Background Color</div>
+      <div class="bg-color-options">
+        <label class="bg-swatch-label">
+          <input type="radio" name="bgColor" value="none" checked>
+          <span class="bg-swatch swatch-none" title="None (transparent)">
+            <span class="swatch-text">None</span>
+          </span>
+        </label>
+        <label class="bg-swatch-label">
+          <input type="radio" name="bgColor" value="#ffffff">
+          <span class="bg-swatch swatch-white" title="White"></span>
+        </label>
+        <label class="bg-swatch-label">
+          <input type="radio" name="bgColor" value="#000000">
+          <span class="bg-swatch swatch-black" title="Black"></span>
+        </label>
+      </div>
+      <div class="hint" id="bgHint">No background fill applied</div>
+    </div>
+
+    <div class="setting-card" style="grid-column: span 2;">
+      <div class="setting-label">eBay HTML Links — Image Base URL</div>
+      <div class="ebay-url-row">
+        <input type="text" id="ebayBaseUrl" placeholder="https://i.ebayimg.com/images/g/your-folder/">
+      </div>
+      <div class="hint">Leave blank to skip eBay link generation. Final URL = base + filename</div>
+    </div>
+  </div>
+
+  <!-- Drop Zone -->
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" multiple accept="image/*">
+    <span class="drop-icon">🖼️</span>
+    <div class="drop-title">Drop images here or click to browse</div>
+    <div class="drop-sub">Supports JPG, PNG, WebP, GIF, BMP, TIFF — bulk upload supported</div>
+  </div>
+
+  <!-- Image Queue -->
+  <div id="queueSection" style="display:none">
+    <div class="section-header">
+      <div class="section-title">Loaded Images</div>
+      <div class="count-badge" id="countBadge">0 files</div>
+    </div>
+    <div class="image-grid" id="imageGrid"></div>
+
+    <div class="action-bar">
+      <button class="btn btn-primary" id="convertBtn">⚡ Convert &amp; Process</button>
+      <button class="btn btn-secondary" id="imgurBtn">☁ Upload to Imgur &amp; Get URLs</button>
+      <button class="btn btn-danger" id="clearBtn">🗑 Clear All</button>
+    </div>
+  </div>
+
+  <div class="status-msg" id="statusMsg"></div>
+
+  <!-- Output: Downloads -->
+  <div class="output-section" id="downloadSection" style="display:none">
+    <div class="output-header">
+      <div class="output-title">Converted Files</div>
+    </div>
+    <div class="progress-bar-wrap" id="progressWrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div style="height:12px"></div>
+    <button class="btn btn-primary dl-all-btn" id="downloadAllBtn">⬇ Download All</button>
+    <div class="download-list" id="downloadList"></div>
+  </div>
+
+  <!-- Output: eBay HTML -->
+  <div class="output-section" id="ebaySection" style="display:none">
+    <div class="output-header">
+      <div class="output-title">eBay Image HTML Links</div>
+      <button class="copy-btn" id="copyEbayBtn">Copy</button>
+    </div>
+    <textarea class="output-box" id="ebayOutput" readonly></textarea>
+  </div>
+
+  <!-- Output: Imgur URLs -->
+  <div class="output-section" id="imgurSection" style="display:none">
+    <div class="output-header">
+      <div class="output-title">Imgur URLs</div>
+      <div style="display:flex;gap:8px">
+        <button class="copy-btn" id="copyImgurBtn">Copy All</button>
+        <button class="copy-btn" id="exportImgurBtn">Export .txt</button>
+      </div>
+    </div>
+    <div class="progress-bar-wrap" id="imgurProgressWrap">
+      <div class="progress-bar" id="imgurProgressBar"></div>
+    </div>
+    <div class="imgur-status" id="imgurStatus"></div>
+    <textarea class="output-box" id="imgurOutput" readonly placeholder="URLs will appear here after upload..."></textarea>
+  </div>
+
+</div>
+
+<script>
+  const imgurBtn = document.getElementById('imgurBtn');
+  const imgurSection = document.getElementById('imgurSection');
+  const imgurOutput = document.getElementById('imgurOutput');
+  const copyImgurBtn = document.getElementById('copyImgurBtn');
+  const exportImgurBtn = document.getElementById('exportImgurBtn');
+  const imgurProgressWrap = document.getElementById('imgurProgressWrap');
+  const imgurProgressBar = document.getElementById('imgurProgressBar');
+  const imgurStatus = document.getElementById('imgurStatus');
+
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+  const imageGrid = document.getElementById('imageGrid');
+  const queueSection = document.getElementById('queueSection');
+  const countBadge = document.getElementById('countBadge');
+  const convertBtn = document.getElementById('convertBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const downloadSection = document.getElementById('downloadSection');
+  const downloadList = document.getElementById('downloadList');
+  const downloadAllBtn = document.getElementById('downloadAllBtn');
+  const ebaySection = document.getElementById('ebaySection');
+  const ebayOutput = document.getElementById('ebayOutput');
+  const copyEbayBtn = document.getElementById('copyEbayBtn');
+  const statusMsg = document.getElementById('statusMsg');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressBar = document.getElementById('progressBar');
+
+  let files = [];
+  let convertedBlobs = [];
+  let imgurUrls = [];
+  let imgurOutNames = [];
+
+  // Background color hint
+  document.querySelectorAll('input[name="bgColor"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const val = radio.value;
+      const hint = document.getElementById('bgHint');
+      if (val === 'none') hint.textContent = 'No background fill applied';
+      else if (val === '#ffffff') hint.textContent = 'White background will be applied';
+      else if (val === '#000000') hint.textContent = 'Black background will be applied';
+    });
+  });
+
+  // Drag and drop
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
+  });
+
+  fileInput.addEventListener('change', () => {
+    addFiles([...fileInput.files]);
+    fileInput.value = '';
+  });
+
+  function addFiles(newFiles) {
+    files = [...files, ...newFiles];
+    renderGrid();
+    hideStatus();
+    downloadSection.style.display = 'none';
+    ebaySection.style.display = 'none';
+    convertedBlobs = [];
+  }
+
+  function renderGrid() {
+    imageGrid.innerHTML = '';
+    if (files.length === 0) {
+      queueSection.style.display = 'none';
+      return;
+    }
+    queueSection.style.display = 'block';
+    countBadge.textContent = `${files.length} file${files.length !== 1 ? 's' : ''}`;
+
+    const prefix = document.getElementById('renamePrefix').value.trim() || 'image';
+    const startNum = parseInt(document.getElementById('startNum').value) || 1;
+    const renameOn = document.getElementById('renameToggle').checked;
+    const fmt = document.getElementById('outputFormat').value;
+    const ext = fmt === 'image/jpeg' ? 'jpg' : fmt === 'image/png' ? 'png' : 'webp';
+
+    files.forEach((file, i) => {
+      const card = document.createElement('div');
+      card.className = 'image-card';
+
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      img.onload = () => URL.revokeObjectURL(img.src);
+
+      const info = document.createElement('div');
+      info.className = 'image-info';
+
+      const origName = document.createElement('div');
+      origName.className = 'image-name';
+      origName.title = file.name;
+      origName.textContent = file.name;
+
+      const newName = document.createElement('div');
+      newName.className = 'image-new-name';
+      const seqNum = String(startNum + i).padStart(3, '0');
+      newName.textContent = renameOn ? `→ ${prefix}-${seqNum}.${ext}` : `→ (original name).${ext}`;
+
+      const sizeEl = document.createElement('div');
+      sizeEl.className = 'image-size';
+      sizeEl.textContent = formatBytes(file.size);
+
+      info.append(origName, newName, sizeEl);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.innerHTML = '×';
+      removeBtn.title = 'Remove';
+      removeBtn.onclick = () => {
+        files.splice(i, 1);
+        renderGrid();
+      };
+
+      card.append(img, info, removeBtn);
+      imageGrid.appendChild(card);
+    });
+  }
+
+  // Re-render on setting changes
+  ['renameToggle','renamePrefix','startNum','outputFormat'].forEach(id => {
+    document.getElementById(id).addEventListener('change', renderGrid);
+    document.getElementById(id).addEventListener('input', renderGrid);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    files = [];
+    convertedBlobs = [];
+    renderGrid();
+    downloadSection.style.display = 'none';
+    ebaySection.style.display = 'none';
+    hideStatus();
+  });
+
+  convertBtn.addEventListener('click', async () => {
+    if (files.length === 0) return;
+
+    convertBtn.disabled = true;
+    convertBtn.textContent = 'Processing…';
+    convertedBlobs = [];
+    downloadList.innerHTML = '';
+    downloadSection.style.display = 'none';
+    ebaySection.style.display = 'none';
+    hideStatus();
+
+    progressWrap.style.display = 'block';
+    progressBar.style.width = '0%';
+    downloadSection.style.display = 'block';
+
+    const fmt = document.getElementById('outputFormat').value;
+    const quality = (parseInt(document.getElementById('quality').value) || 90) / 100;
+    const ext = fmt === 'image/jpeg' ? 'jpg' : fmt === 'image/png' ? 'png' : 'webp';
+    const renameOn = document.getElementById('renameToggle').checked;
+    const prefix = document.getElementById('renamePrefix').value.trim() || 'image';
+    const startNum = parseInt(document.getElementById('startNum').value) || 1;
+    const baseUrl = document.getElementById('ebayBaseUrl').value.trim();
+    const bgColor = document.querySelector('input[name="bgColor"]:checked').value;
+
+    const ebayLinks = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const seqNum = String(startNum + i).padStart(3, '0');
+      const outName = renameOn
+        ? `${prefix}-${seqNum}.${ext}`
+        : file.name.replace(/\.[^.]+$/, '') + '.' + ext;
+
+      try {
+        const blob = await convertImage(file, fmt, quality, bgColor);
+        convertedBlobs.push({ blob, name: outName });
+
+        // Download item
+        const url = URL.createObjectURL(blob);
+        const item = document.createElement('div');
+        item.className = 'download-item';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'dl-name';
+        nameEl.textContent = outName;
+
+        const dlBtn = document.createElement('a');
+        dlBtn.className = 'dl-btn';
+        dlBtn.href = url;
+        dlBtn.download = outName;
+        dlBtn.textContent = 'Save';
+
+        item.append(nameEl, dlBtn);
+        downloadList.appendChild(item);
+
+        // eBay link
+        if (baseUrl) {
+          const fullUrl = baseUrl.replace(/\/$/, '') + '/' + outName;
+          ebayLinks.push(`<img src="${fullUrl}" alt="${outName}" style="max-width:100%;">`);
+        }
+
+      } catch (err) {
+        console.error('Conversion error:', err);
+      }
+
+      progressBar.style.width = `${Math.round(((i + 1) / files.length) * 100)}%`;
+    }
+
+    convertBtn.disabled = false;
+    convertBtn.textContent = '⚡ Convert & Process';
+    showStatus(`✓ ${convertedBlobs.length} image${convertedBlobs.length !== 1 ? 's' : ''} converted successfully.`, 'success');
+
+    if (ebayLinks.length > 0) {
+      ebayOutput.value = ebayLinks.join('\n');
+      ebaySection.style.display = 'block';
+    }
+
+    setTimeout(() => { progressWrap.style.display = 'none'; }, 600);
+  });
+
+  downloadAllBtn.addEventListener('click', async () => {
+    for (const { blob, name } of convertedBlobs) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      await new Promise(r => setTimeout(r, 120));
+      URL.revokeObjectURL(url);
+    }
+  });
+
+  copyEbayBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(ebayOutput.value).then(() => {
+      copyEbayBtn.textContent = 'Copied!';
+      copyEbayBtn.classList.add('copied');
+      setTimeout(() => { copyEbayBtn.textContent = 'Copy'; copyEbayBtn.classList.remove('copied'); }, 2000);
+    });
+  });
+
+  function convertImage(file, fmt, quality, bgColor) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        // Apply background color if selected, or default white for JPEG
+        const fill = bgColor !== 'none' ? bgColor : (fmt === 'image/jpeg' ? '#ffffff' : null);
+        if (fill) {
+          ctx.fillStyle = fill;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob(blob => {
+          if (blob) resolve(blob);
+          else reject(new Error('Conversion failed'));
+        }, fmt, quality);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Load failed')); };
+      img.src = url;
+    });
+  }
+
+  // Imgur Upload
+  imgurBtn.addEventListener('click', async () => {
+    if (files.length === 0) { showStatus('No images loaded. Please add images first.', 'error'); return; }
+
+    imgurBtn.disabled = true;
+    imgurBtn.textContent = 'Uploading…';
+    imgurSection.style.display = 'block';
+    imgurOutput.value = '';
+    imgurStatus.textContent = '';
+    imgurProgressWrap.style.display = 'block';
+    imgurProgressBar.style.width = '0%';
+
+    const fmt = document.getElementById('outputFormat').value;
+    const quality = (parseInt(document.getElementById('quality').value) || 90) / 100;
+    const bgColor = document.querySelector('input[name="bgColor"]:checked').value;
+    const renameOn = document.getElementById('renameToggle').checked;
+    const prefix = document.getElementById('renamePrefix').value.trim() || 'image';
+    const startNum = parseInt(document.getElementById('startNum').value) || 1;
+    const ext = fmt === 'image/jpeg' ? 'jpg' : fmt === 'image/png' ? 'png' : 'webp';
+
+    imgurUrls = [];
+    imgurOutNames = [];
+    const errors = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const seqNum = String(startNum + i).padStart(3, '0');
+      const outName = renameOn ? `${prefix}-${seqNum}.${ext}` : file.name.replace(/\.[^.]+$/, '') + '.' + ext;
+
+      imgurStatus.textContent = `Uploading ${i + 1} of ${files.length}: ${outName}`;
+
+      try {
+        const blob = await convertImage(file, fmt, quality, bgColor);
+        const base64 = await blobToBase64(blob);
+        const imgData = base64.split(',')[1];
+
+        const res = await fetch('https://api.imgur.com/3/image', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Client-ID 546c25a59c58ad7',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ image: imgData, type: 'base64', name: outName })
+        });
+
+        const json = await res.json();
+        if (json.success) {
+          imgurUrls.push(json.data.link);
+          imgurOutNames.push(outName);
+        } else {
+          errors.push(`${outName}: Upload failed`);
+        }
+      } catch (err) {
+        errors.push(`${outName}: ${err.message}`);
+      }
+
+      imgurProgressBar.style.width = `${Math.round(((i + 1) / files.length) * 100)}%`;
+    }
+
+    // Build paired display: filename → URL per line
+    const pairedLines = imgurOutNames.map((name, i) => `${name}  →  ${imgurUrls[i]}`);
+    imgurOutput.value = pairedLines.join('\n');
+    if (errors.length) imgurOutput.value += '\n\nFAILED:\n' + errors.join('\n');
+
+    imgurBtn.disabled = false;
+    imgurBtn.textContent = '☁ Upload to Imgur & Get URLs';
+    imgurStatus.textContent = `✓ ${imgurUrls.length} uploaded${errors.length ? ` · ${errors.length} failed` : ''}`;
+    setTimeout(() => { imgurProgressWrap.style.display = 'none'; }, 600);
+  });
+
+  copyImgurBtn.addEventListener('click', () => {
+    const pipeUrls = imgurUrls.join(' | ');
+    navigator.clipboard.writeText(pipeUrls).then(() => {
+      copyImgurBtn.textContent = 'Copied!';
+      copyImgurBtn.classList.add('copied');
+      setTimeout(() => { copyImgurBtn.textContent = 'Copy All'; copyImgurBtn.classList.remove('copied'); }, 2000);
+    });
+  });
+
+  exportImgurBtn.addEventListener('click', () => {
+    if (!imgurUrls.length) return;
+    // Single row CSV: col1 = rename prefix only, col2 = all URLs pipe-separated
+    const prefix = document.getElementById('renamePrefix').value.trim() || 'image';
+    const col2 = imgurUrls.join(' | ');
+    const csv = `Filenames,URLs\n"${prefix}","${col2}"`;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'imgur-urls.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function showStatus(msg, type) {
+    statusMsg.textContent = msg;
+    statusMsg.className = `status-msg ${type}`;
+  }
+
+  function hideStatus() {
+    statusMsg.className = 'status-msg';
+    statusMsg.textContent = '';
+  }
+</script>
+</body>
+</html>

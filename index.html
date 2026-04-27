@@ -1044,8 +1044,8 @@
     <div class="action-bar" id="actionBar">
       <button class="btn btn-primary" id="convertBtn">⚡ Convert &amp; Process</button>
       <button class="btn btn-secondary" id="removeBgBtn">✂ Remove Background</button>
-      <button class="btn btn-secondary" id="imgurRawBtn">☁ Upload to Imgur (As-Is)</button>
-      <button class="btn btn-secondary" id="imgurBtn">☁ Upload to Imgur (Processed)</button>
+      <button class="btn btn-secondary" id="imgurRawBtn">☁ Upload & Get URLs (As-Is)</button>
+      <button class="btn btn-secondary" id="imgurBtn">☁ Upload & Get URLs (Processed)</button>
       <button class="btn btn-danger" id="clearBtn">🗑 Clear All</button>
     </div>
   </div>
@@ -1081,7 +1081,7 @@
   <!-- Output: Imgur URLs (current batch) -->
   <div class="output-section" id="imgurSection" style="display:none">
     <div class="output-header">
-      <div class="output-title">Imgur URLs — Current Batch</div>
+      <div class="output-title">Cloudinary URLs — Current Batch</div>
       <div style="display:flex;gap:8px">
         <button class="copy-btn" id="copyImgurBtn">Copy All</button>
         <button class="copy-btn" id="exportImgurBtn">Export CSV</button>
@@ -1743,7 +1743,27 @@
     });
   }
 
-  // Imgur Raw Upload (no pipeline — just rename and upload as-is)
+  // Cloudinary config
+  const CLOUDINARY_CLOUD = 'root';
+  const CLOUDINARY_PRESET = 'unsigned';
+
+  async function uploadToCloudinary(blob, filename) {
+    const formData = new FormData();
+    formData.append('file', blob, filename);
+    formData.append('upload_preset', CLOUDINARY_PRESET);
+    formData.append('public_id', filename.replace(/\.[^.]+$/, ''));
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+      method: 'POST',
+      body: formData
+    });
+
+    const json = await res.json();
+    if (json.secure_url) return json.secure_url;
+    throw new Error(json.error?.message || 'Upload failed');
+  }
+
+  // Cloudinary Raw Upload (no pipeline — just rename and upload as-is)
   imgurRawBtn.addEventListener('click', async () => {
     if (files.length === 0) { showStatus('No images loaded. Please add images first.', 'error'); return; }
 
@@ -1772,25 +1792,9 @@
       imgurStatus.textContent = `Uploading ${i + 1} of ${files.length}: ${outName}`;
 
       try {
-        const base64 = await blobToBase64(file);
-        const imgData = base64.split(',')[1];
-
-        const res = await fetch('https://api.imgur.com/3/image', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Client-ID 546c25a59c58ad7',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ image: imgData, type: 'base64', name: outName })
-        });
-
-        const json = await res.json();
-        if (json.success) {
-          imgurUrls.push(json.data.link);
-          imgurOutNames.push(outName);
-        } else {
-          errors.push(`${outName}: Upload failed`);
-        }
+        const url = await uploadToCloudinary(file, outName);
+        imgurUrls.push(url);
+        imgurOutNames.push(outName);
       } catch (err) {
         errors.push(`${outName}: ${err.message}`);
       }
@@ -1803,7 +1807,7 @@
     if (errors.length) imgurOutput.value += '\n\nFAILED:\n' + errors.join('\n');
 
     imgurRawBtn.disabled = false;
-    imgurRawBtn.textContent = '☁ Upload to Imgur (As-Is)';
+    imgurRawBtn.textContent = '☁ Upload & Get URLs (As-Is)';
     imgurStatus.textContent = `✓ ${imgurUrls.length} uploaded (originals)${errors.length ? ` · ${errors.length} failed` : ''}`;
     setTimeout(() => { imgurProgressWrap.style.display = 'none'; }, 600);
 
@@ -1814,7 +1818,7 @@
     }
   });
 
-  // Imgur Upload
+  // Cloudinary Processed Upload
   imgurBtn.addEventListener('click', async () => {
     if (files.length === 0 && convertedBlobs.length === 0) {
       showStatus('No images loaded. Please add images first.', 'error'); return;
@@ -1832,7 +1836,6 @@
     imgurOutNames = [];
     const errors = [];
 
-    // Use already-processed blobs if available (full pipeline ran), else convert raw files
     const useProcessed = convertedBlobs.length > 0;
     const sourceBlobs = useProcessed
       ? convertedBlobs
@@ -1863,25 +1866,9 @@
       imgurStatus.textContent = `Uploading ${i + 1} of ${sourceBlobs.length}: ${outName}`;
 
       try {
-        const base64 = await blobToBase64(blob);
-        const imgData = base64.split(',')[1];
-
-        const res = await fetch('https://api.imgur.com/3/image', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Client-ID 546c25a59c58ad7',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ image: imgData, type: 'base64', name: outName })
-        });
-
-        const json = await res.json();
-        if (json.success) {
-          imgurUrls.push(json.data.link);
-          imgurOutNames.push(outName);
-        } else {
-          errors.push(`${outName}: Upload failed`);
-        }
+        const url = await uploadToCloudinary(blob, outName);
+        imgurUrls.push(url);
+        imgurOutNames.push(outName);
       } catch (err) {
         errors.push(`${outName}: ${err.message}`);
       }
@@ -1889,17 +1876,15 @@
       imgurProgressBar.style.width = `${Math.round(((i + 1) / sourceBlobs.length) * 100)}%`;
     }
 
-    // Build paired display: filename → URL per line
     const pairedLines = imgurOutNames.map((name, i) => `${name}  →  ${imgurUrls[i]}`);
     imgurOutput.value = pairedLines.join('\n');
     if (errors.length) imgurOutput.value += '\n\nFAILED:\n' + errors.join('\n');
 
     imgurBtn.disabled = false;
-    imgurBtn.textContent = '☁ Upload to Imgur & Get URLs';
+    imgurBtn.textContent = '☁ Upload & Get URLs (Processed)';
     imgurStatus.textContent = `✓ ${imgurUrls.length} uploaded${errors.length ? ` · ${errors.length} failed` : ''}${useProcessed ? ' (from processed batch)' : ''}`;
     setTimeout(() => { imgurProgressWrap.style.display = 'none'; }, 600);
 
-    // Save batch to URL library
     if (imgurUrls.length > 0) {
       const prefix = document.getElementById('renamePrefix').value.trim() || 'image';
       const batchName = prefix + ' — ' + imgurUrls.length + ' image' + (imgurUrls.length !== 1 ? 's' : '');
@@ -1927,7 +1912,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'imgur-urls.csv';
+    a.download = 'cloudinary-urls.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
